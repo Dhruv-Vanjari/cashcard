@@ -1,6 +1,5 @@
 package example.cashcard;
 
-
 import com.jayway.jsonpath.DocumentContext;
 import com.jayway.jsonpath.JsonPath;
 import net.minidev.json.JSONArray;
@@ -15,36 +14,21 @@ import org.springframework.test.annotation.DirtiesContext;
 import java.net.URI;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.annotation.DirtiesContext.*;
 
-
-// @SpringBootTest()
-// This will start our Spring Boot application and make it available for our
-// test to perform requests to it.
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-// @DirtiesContext(classMode = ClassMode.AFTER_EACH_TEST_METHOD)
 class CashCardApplicationTests {
-
-	// We've asked Spring to inject a test helper that’ll allow us to make HTTP
-	// requests to the locally running application.
-	// Note: Even though @Autowired is a form of Spring dependency injection, it’s
-	// best used only in tests. Don't worry, we'll discuss this in more detail later.
     @Autowired
     TestRestTemplate restTemplate;
 
     @Test
     void shouldReturnACashCardWhenDataIsSaved() {
-        ResponseEntity<String> response = restTemplate.getForEntity("/cashcards/99", String.class);
+        ResponseEntity<String> response = restTemplate
+            .withBasicAuth("sarah1", "abc123")
+            .getForEntity("/cashcards/99", String.class);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 
-        // This converts the response String into a JSON-aware object with lots
-        // of helper methods.
-
         DocumentContext documentContext = JsonPath.parse(response.getBody());
-
-        // We expect that when we request a Cash Card with id of 99 a JSON
-        // object will be returned with something in the id field.
-       Number id = documentContext.read("$.id");
+        Number id = documentContext.read("$.id");
         assertThat(id).isEqualTo(99);
 
         Double amount = documentContext.read("$.amount");
@@ -53,25 +37,27 @@ class CashCardApplicationTests {
 
     @Test
     void shouldNotReturnACashCardWithAnUnknownId() {
-        ResponseEntity<String> response = restTemplate.getForEntity("/cashcards/1000", String.class);
+        ResponseEntity<String> response = restTemplate
+            .withBasicAuth("sarah1", "abc123")
+            .getForEntity("/cashcards/1000", String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(response.getBody()).isBlank();
     }
 
-    // @DirtiesContext fixes this problem by causing Spring to start with a
-    // clean slate, as if those other tests hadn't been run.
-    // This test interfieres with other tests by creating a new CashCard
     @Test
     @DirtiesContext
     void shouldCreateANewCashCard() {
+        CashCard newCashCard = new CashCard(null, 250.00, "sarah1");
+        ResponseEntity<Void> createResponse = restTemplate
+            .withBasicAuth("sarah1", "abc123")
+            .postForEntity("/cashcards", newCashCard, Void.class);
+        assertThat(createResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
 
-        CashCard newCashCard = new CashCard(null, 250.00);
-
-        ResponseEntity<Void> response = restTemplate.postForEntity("/cashcards", newCashCard, Void.class);
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-
-        URI locationOfNewCashCard = response.getHeaders().getLocation();
-        ResponseEntity<String> getResponse = restTemplate.getForEntity(locationOfNewCashCard, String.class);
+        URI locationOfNewCashCard = createResponse.getHeaders().getLocation();
+        ResponseEntity<String> getResponse = restTemplate
+            .withBasicAuth("sarah1", "abc123")
+            .getForEntity(locationOfNewCashCard, String.class);
         assertThat(getResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
 
         DocumentContext documentContext = JsonPath.parse(getResponse.getBody());
@@ -80,16 +66,16 @@ class CashCardApplicationTests {
 
         assertThat(id).isNotNull();
         assertThat(amount).isEqualTo(250.00);
-
     }
 
     @Test
     void shouldReturnAllCashCardsWhenListIsRequested() {
-        ResponseEntity<String> response = restTemplate.getForEntity("/cashcards", String.class);
+        ResponseEntity<String> response = restTemplate
+            .withBasicAuth("sarah1", "abc123")
+            .getForEntity("/cashcards", String.class);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 
         DocumentContext documentContext = JsonPath.parse(response.getBody());
-
         int cashCardCount = documentContext.read("$.length()");
         assertThat(cashCardCount).isEqualTo(3);
 
@@ -97,12 +83,14 @@ class CashCardApplicationTests {
         assertThat(ids).containsExactlyInAnyOrder(99, 100, 101);
 
         JSONArray amounts = documentContext.read("$..amount");
-        assertThat(amounts).containsExactlyInAnyOrder(123.45, 1.0, 150.00);
+        assertThat(amounts).containsExactlyInAnyOrder(123.45, 1.00, 150.00);
     }
 
     @Test
     void shouldReturnAPageOfCashCards() {
-        ResponseEntity<String> response = restTemplate.getForEntity("/cashcards?page=0&size=1", String.class);
+        ResponseEntity<String> response = restTemplate
+            .withBasicAuth("sarah1", "abc123")
+            .getForEntity("/cashcards?page=0&size=1", String.class);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 
         DocumentContext documentContext = JsonPath.parse(response.getBody());
@@ -112,7 +100,9 @@ class CashCardApplicationTests {
 
     @Test
     void shouldReturnASortedPageOfCashCards() {
-        ResponseEntity<String> response = restTemplate.getForEntity("/cashcards?page=0&size=1&sort=amount,desc", String.class);
+        ResponseEntity<String> response = restTemplate
+            .withBasicAuth("sarah1", "abc123")
+            .getForEntity("/cashcards?page=0&size=1&sort=amount,desc", String.class);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 
         DocumentContext documentContext = JsonPath.parse(response.getBody());
@@ -125,7 +115,9 @@ class CashCardApplicationTests {
 
     @Test
     void shouldReturnASortedPageOfCashCardsWithNoParametersAndUseDefaultValues() {
-        ResponseEntity<String> response = restTemplate.getForEntity("/cashcards", String.class);
+        ResponseEntity<String> response = restTemplate
+            .withBasicAuth("sarah1", "abc123")
+            .getForEntity("/cashcards", String.class);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 
         DocumentContext documentContext = JsonPath.parse(response.getBody());
@@ -136,4 +128,20 @@ class CashCardApplicationTests {
         assertThat(amounts).containsExactly(1.00, 123.45, 150.00);
     }
 
+    @Test
+    void shouldRejectUsersWhoAreNotCardOwners() {
+        ResponseEntity<String> response = restTemplate
+          .withBasicAuth("hank-owns-no-cards", "qrs456")
+          .getForEntity("/cashcards/99", String.class);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+
+    @Test
+    void shouldNotAllowAccessToCashCardsTheyDoNotOwn() {
+        ResponseEntity<String> response = restTemplate
+          .withBasicAuth("sarah1", "abc123")
+          .getForEntity("/cashcards/102", String.class); // kumar2's data
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
 }
