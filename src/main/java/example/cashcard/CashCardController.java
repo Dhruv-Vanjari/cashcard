@@ -55,4 +55,25 @@ class CashCardController {
                 ));
         return ResponseEntity.ok(page.getContent());
     }
+
+    @PutMapping("/{requestedId}")
+    private ResponseEntity<Void> putCashCard(@PathVariable Long requestedId, @RequestBody CashCard cashCardUpdate, Principal principal) {
+        // just return 204 NO CONTENT for now.
+
+        // 35
+        Optional<CashCard> cashCardOptional = cashCardRepository.findByIdAndOwner(requestedId, principal.getName());
+        if (!cashCardOptional.isPresent()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        CashCard cashCard = cashCardOptional.get();
+
+        CashCard updatedCashCard = new CashCard(cashCard.id(), cashCardUpdate.amount(), principal.getName());
+        cashCardRepository.save(updatedCashCard);
+
+        return ResponseEntity.noContent().build();
+
+        // 43 - 35 = 8
+    }
+
 }
